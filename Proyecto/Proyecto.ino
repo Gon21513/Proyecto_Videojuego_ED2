@@ -1,5 +1,5 @@
-//Luis Pedro Gonzalez
-//Gabriel Carrera
+//Luis Pedro Gonzalez 21513
+//Gabriel Carrera 21216
 //Proyecto 2, Frog Smashers
 
 //***************************************************************************************************************************************
@@ -41,17 +41,20 @@ uint8_t btnState2;
 uint8_t botones ;
 
 
-//posiciones 
-int posX = 25;
+//---------------------------------------posiciones --------------------------------------
+int posX = 25; //posicion de inicio 
 int posX2;
 int posY = 193; // posición vertical inicial para el salto 
 
 int altinicial = 193; //posicion vertical general de inicio del personaje
 
-//colores
+int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
+
+//--------------------------------------colores-----------------------------------------
 
 int fillmovecolor = 0xFDF1; //color con el que se rellena cuando el perosnje borra 
-
+extern uint8_t platlow[]; //tile de la primera plataforma
+extern uint8_t vigap1low[]; //tile de madera en la primera plataforma 
 
 //antirrebote para el salto
 bool isJumping = false; //chequea si se esta saltando 
@@ -64,10 +67,6 @@ unsigned long lastBatTime = 0; // Tiempo del último bateo
 const unsigned long batDebounceTime = 500; // Tiempo de anti-rebote para el bateo
 
 //**************************************************************
-//animaciones
-
-uint16_t animbat = (posX/2)%4;// numero de frames, 2 cada cuandtos frames (maneja velocidad)
-
 
 //************************************************************
 
@@ -90,8 +89,6 @@ void LCD_Sprite(int x, int y, int width, int height, unsigned char bitmap[],int 
 
 
 
-// extern uint8_t fondo[];
-extern uint8_t back1[];
 //***************************************************************************************************************************************
 // Inicialización
 //***************************************************************************************************************************************
@@ -114,81 +111,66 @@ void setup() {
   pinMode(btnPin2, INPUT_PULLUP);
 
 //---------------------configuracion de pantalla--------------------------------
-    LCD_Bitmap(0, 0, 320, 240, back1);
+extern uint8_t back1[];
+LCD_Bitmap(0, 0, 320, 240, back1);
   
-  //fondo de color mario 
-  //FillRect(0, 0, 319, 206, 0xFBC1);// puede ser para llenar el fondo de un color 
-  //String text1 = "Super Mario World!";
-  //LCD_Print(text1, 20, 100, 2, 0xffff, 0x421b);
-//LCD_Sprite(int x, int y, int width, int height, unsigned char bitmap[],int columns, int index, char flip, char offset);
-    
-  //LCD_Bitmap(unsigned int x, unsigned int y, unsigned int width, unsigned int height, unsigned char bitmap[]);
-  //LCD_Bitmap(120, 120, 32, 32, planta);//y es el primero, x el segundo
 
-//funcion para replicar un bit map varia veces, por ejemplo un cuadrado para el piso
-//en el mapa de mario
- // for(int x = 0; x <319; x++){
-  //  LCD_Bitmap(x, 52, 16, 16, tile2);// 16,16 son los tamanos
- //   LCD_Bitmap(x, 68, 16, 16, tile);
-    
- //   LCD_Bitmap(x, 207, 16, 16, tile);
-  //  LCD_Bitmap(x, 223, 16, 16, tile);
-  //  x += 15;
- //}
-
-    //LCD_Sprite(posX,177,25,22,runf1,4,animframe,0,0);
  
 }
 
 //-----------------------------------FUNCION DEL SALTO---------------------------------------------------
 void saltar() {
-  int alturaSalto = 50;
-  isJumping = true; // Inicia la animación de salto
+  int alturaSalto = 50;  // Define la altura total del salto
+  int avanceHorizontal = 1;  // Define cuántos píxeles se moverá horizontalmente en cada paso del salto
 
-  // Fase de subida
+  isJumping = true;  // Activa la bandera de salto
+
+  // Fase de subida del salto
   for (int j = 0; j < alturaSalto / 2; j++) { 
-    FillRect(posX, posY, 25, 22, fillmovecolor); // Dibuja un rectángulo del color de fondo en la posición antigua del sprite
-
-    posY--; // Mueve el personaje hacia arriba
-    for(uint16_t i = 0; i < 3; i++) { // Itera sobre los frames de subida
-        // Dibuja el frame de subida correspondiente
-        LCD_Sprite(posX, posY, 25, 22, jumpfrog2, 5, i, 1, 0); 
-        delay(10); // Retardo entre frames para visualizar la animación
+    FillRect(posX, posY, 26, 22, fillmovecolor);  // Borra el sprite anterior dibujando un rectángulo del color de fondo, FillRect(posX, posY, 25, 22, fillmovecolor);
+    posY--;  // Decrementa la posición vertical para mover el sprite hacia arriba
+    if (movimiento == 1 && posX < 320 - 25) {  // Si el movimiento es a la derecha y no se ha llegado al límite derecho
+      posX += avanceHorizontal;  // Incrementa la posición horizontal
+    } else if (movimiento == -1 && posX > 0) {  // Si el movimiento es a la izquierda y no se ha llegado al límite izquierdo
+      posX -= avanceHorizontal;  // Decrementa la posición horizontal
     }
-  }
+    for(uint16_t i = 0; i < 3; i++) { 
 
-  // Fase de bajada
+        //  true (1) si movimiento es -1 y false (0) si movimiento es 1, asi se logra hacer un flip 
+        //en el personaje de salto dependiendo de su direccion 
+
+       LCD_Sprite(posX, posY, 25, 22, jumpfrog2, 5, i, movimiento == -1, 0); // Dibuja el sprite de salto correspondiente
+        delay(5);  // Introduce un pequeño retardo para visualizar el sprite
+    }
+  }//fin de fase de subida 
+
+  // Fase de bajada del salto
   for (int j = 0; j < alturaSalto / 2; j++) {
-    FillRect(posX, posY, 25, 22, fillmovecolor); // Dibuja un rectángulo del color de fondo en la posición antigua del sprite
- 
-    posY++; // Mueve el personaje hacia abajo
-    for(uint16_t i = 2; i < 5; i++) { // Itera sobre los frames de bajada
-        // Dibuja el frame de bajada correspondiente
-        LCD_Sprite(posX, posY, 25, 22, jumpfrog2, 5, i, 1, 0); 
-        delay(10); // Retardo entre frames para visualizar la animación
+    FillRect(posX, posY, 25, 22, fillmovecolor);  // Borra el sprite anterior
+    posY++;  // Incrementa la posición vertical para mover el sprite hacia abajo
+    if (movimiento == 1 && posX < 320 - 25) {  // Si el movimiento es a la derecha y no se ha llegado al límite derecho
+      posX += avanceHorizontal;  // Incrementa la posición horizontal
+
+    } else if (movimiento == -1 && posX > 0) {  // Si el movimiento es a la izquierda y no se ha llegado al límite izquierdo
+      posX -= avanceHorizontal;  // Decrementa la posición horizontal
+    
     }
-  }
+    for(uint16_t i = 2; i < 5; i++) { 
+        LCD_Sprite(posX, posY, 25, 22, jumpfrog2, 5, i, movimiento == -1, 0);   // Dibuja el sprite de bajada correspondiente
+        delay(5);  // Introduce un pequeño retardo para visualizar el sprite
+    }
+  }//fin de fase de bajada
+  FillRect(posX, posY, 25, 22, fillmovecolor);  // Borra el sprite anterior una vez que el salto ha finalizado
+  posY = altinicial;  // Restablece la posición vertical del sprite a su valor inicial
+  isJumping = false;  // Desactiva la bandera de salto
 
-  FillRect(posX, posY, 25, 22, fillmovecolor); // Dibuja un rectángulo del color de fondo en la posición antigua del sprite
-
-  posY = altinicial; // Restablece la posición vertical del personaje
-  isJumping = false; // Finaliza la animación de salto
-
-  // Dibuja el sprite original (runf1) después de finalizar la animación de salto
-  LCD_Sprite(posX, posY, 25, 22, runf1, 4, 0, 0, 0); // Asume que el primer frame de runf1 es el estado "idle" o de reposo
-}
-
-
-
-//void dibujarPersonaje() {
- // uint16_t animframe = (posX/6)%4;
- // if (isJumping) {
- //   LCD_Sprite(posX, posY, 25, 22, jumpfrog2, 5, animframe, 1, 0); // Usar sprite de salto
- // } else {
- //   LCD_Sprite(posX, posY, 25, 22, runf1, 4, animframe, 0, 0); // Usar sprite de correr
- // }
- // V_line( posX -1, posY + 22, 24, fillmovecolor);
-//}
+  // Dibuja el sprite original después de finalizar el salto, con o sin flip dependiendo de la dirección
+  if (movimiento == 1) {  // Si el movimiento fue a la derecha
+    LCD_Sprite(posX+1, posY, 25, 22, runf1, 4, 0, 0, 0);  // Dibuja el sprite en reposo sin flip
+  } else if (movimiento == -1) {  // Si el movimiento fue a la izquierda
+    LCD_Sprite(posX, posY, 25, 22, runf1, 4, 0, 1, 0);  // Dibuja el sprite en reposo con flip (cambia  a 1)
+  }//finn de flip al caaer
+}//fin de funcion de salto 
 
 //-------------------------------------------------------------------------------------
 
@@ -202,6 +184,12 @@ void saltar() {
 //***************************************************************************************************************************************
 void loop() {
 
+
+//tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
+    LCD_Bitmap(55, 170, 216, 3, platlow);// 16,16 son los tamanos
+    LCD_Bitmap(88, 173, 10, 43, vigap1low);// 16,16 son los tamanos
+
+
 //-----------------------------control jugador 1------------------------------------
   if (Serial2.available()) { // Si hay datos disponibles en el puerto serial UART2
     char t = Serial2.read(); // Lee un caracter de UART2
@@ -210,6 +198,8 @@ void loop() {
 
 //moviemieto a la derecha
     if (t == 'B' ) { // Si se recibe 'B', mover a la derecha
+      movimiento = 1; // Establece bandera a 1 cuando se mueve hacia la derecha
+
       posX += 2;// se puede ir modificando para arreglar la velvidad, tambien se debe ir modificando el vline
       if (posX != posX2) {
         //Serial2.println("Derecha");
@@ -224,7 +214,7 @@ void loop() {
         // Dibuja líneas en las posiciones anteriores para "borrar" el sprite anterior
         V_line( posX2 -1, altinicial, 22, fillmovecolor);
         V_line( posX2, altinicial, 22, fillmovecolor);
-        V_line( posX2 +1, altinicial, 22, fillmovecolor);
+        V_line( posX2 +2, altinicial, 22, fillmovecolor);
 
         // Dibuja el nuevo sprite
         LCD_Sprite(posX,altinicial,25,22,runf1,4,animrun,0,0);
@@ -241,6 +231,8 @@ void loop() {
 
 //izquierda
     if (t == 'D' ){
+    movimiento = -1; // Establece bandera a -1 cuando se mueve hacia la izquierda
+
     posX -= 2;
     if (posX != posX2)
     {
@@ -254,17 +246,15 @@ void loop() {
 
         // Borra el sprite anterior
        // Dibuja líneas en las posiciones anteriores para "borrar" el sprite anterior
+       V_line( posX2 +24, altinicial, 22, fillmovecolor);
        V_line( posX2 +25, altinicial, 22, fillmovecolor);
        V_line( posX2 +26, altinicial, 22, fillmovecolor);
-       V_line( posX2 +27, altinicial, 22, fillmovecolor);
 
        // Dibuja el nuevo sprite
        LCD_Sprite(posX,altinicial,25,22,runf1,4,animrun2,1,0);
-       V_line( posX +25, altinicial, 22, 0x421b);
+       V_line( posX +25, altinicial, 22, fillmovecolor);
        posX2 = posX; // Actualiza posX2 con el valor actual de posX
-      //LCD_Sprite(posX,177,25,22,runf1,4,animframe,1,0);// vline original a 1x de velocidad 
-      //V_line( posX +25, 177, 24, 0x421b);
-      //posX2 = posX;
+
     }
     }//final izquierda 
 
@@ -307,26 +297,7 @@ if (t == 'J' && millis() - lastJumpTime > jumpDebounceTime) {
   ///  LCD_Sprite(x,177,25,22,runf1,4,anim2,0,1);
     ///V_line( x -1, 177, 24, 0x421b);
 
-    
-    //LCD_Bitmap(x, 100, 32, 32, prueba);
-    
-    //int anim = (x/11)%8;
-    
 
-    //int anim3 = (x/11)%4;
-    
-    //LCD_Sprite(x, 20, 16, 32, mario,8, anim,1, 0);
-    //V_line( x -1, 20, 32, 0x421b);
- 
-    //LCD_Sprite(x,100,32,32,bowser,4,anim3,0,1);
-    //V_line( x -1, 100, 32, 0x421b);
- 
- 
-    //LCD_Sprite(x, 140, 16, 16, enemy,2, anim2,1, 0);
-    //V_line( x -1, 140, 16, 0x421b);
-  
-    //LCD_Sprite(x, 175, 16, 32, luigi,8, anim,1, 0);
-    //V_line( x -1, 175, 32, 0x421b);
   //}
 
 
