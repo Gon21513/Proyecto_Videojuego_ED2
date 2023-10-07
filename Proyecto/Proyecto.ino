@@ -55,6 +55,12 @@ int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
 int fillmovecolor = 0xFDF1; //color con el que se rellena cuando el perosnje borra 
 extern uint8_t platlow[]; //tile de la primera plataforma
 extern uint8_t vigap1low[]; //tile de madera en la primera plataforma 
+extern uint8_t viga2p1low[]; //tile madera 2 en primera plataforma
+extern uint8_t plat2high[]; // tile de la segunda plataforma
+extern uint8_t viga1p2high[]; //tile madera 1 en plat high 
+extern uint8_t viga2p2high[];// madera 2 plat high 
+
+
 
 //antirrebote para el salto
 bool isJumping = false; //chequea si se esta saltando 
@@ -166,7 +172,7 @@ void saltar() {
 
   // Dibuja el sprite original después de finalizar el salto, con o sin flip dependiendo de la dirección
   if (movimiento == 1) {  // Si el movimiento fue a la derecha
-    LCD_Sprite(posX+1, posY, 25, 22, runf1, 4, 0, 0, 0);  // Dibuja el sprite en reposo sin flip
+    LCD_Sprite(posX+1, posY, 25, 22, runf1, 4, 0, 0, 0);  // Dibuja el sprite en reposo sin flip-- ajuste de uno para eliminar rastro
   } else if (movimiento == -1) {  // Si el movimiento fue a la izquierda
     LCD_Sprite(posX, posY, 25, 22, runf1, 4, 0, 1, 0);  // Dibuja el sprite en reposo con flip (cambia  a 1)
   }//finn de flip al caaer
@@ -186,9 +192,12 @@ void loop() {
 
 
 //tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
-    LCD_Bitmap(55, 170, 216, 3, platlow);// 16,16 son los tamanos
-    LCD_Bitmap(88, 173, 10, 43, vigap1low);// 16,16 son los tamanos
-
+    LCD_Bitmap(55, 170, 216, 3, platlow);// plataforma 1
+    LCD_Bitmap(87, 173, 10, 43, vigap1low);// madera 1
+    LCD_Bitmap(225, 173, 10, 43, viga2p1low); //madera 2 plat2high
+    LCD_Bitmap(88, 130, 144, 3, plat2high);// plataforma 1     
+    LCD_Bitmap(106, 133, 3, 37, viga1p2high);// madera 1 viga2p2high[]
+    LCD_Bitmap(213, 133, 3, 37, viga2p2high);// madera 1 
 
 //-----------------------------control jugador 1------------------------------------
   if (Serial2.available()) { // Si hay datos disponibles en el puerto serial UART2
