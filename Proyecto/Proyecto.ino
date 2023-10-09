@@ -23,6 +23,10 @@
 #include "font.h"
 #include "lcd_registers.h"
 
+#define CUSTOM_SETTINGS
+#define INCLUDE_GAMEPAD_MODULE
+#include <Dabble.h>
+
 #define LCD_RST PD_0
 #define LCD_CS PD_1
 #define LCD_RS PD_2
@@ -34,13 +38,6 @@ int DPINS[] = {PB_0, PB_1, PB_2, PB_3, PB_4, PB_5, PB_6, PB_7};
 #define frogswidth 25
 #define frogsheight 22
 
-//botones 
-
-const int btnPin1 = PUSH2;
-const int btnPin2 = PUSH1;
-uint8_t btnState1;
-uint8_t btnState2;
-uint8_t botones ;
 
 
 //---------------------------------------posiciones --------------------------------------
@@ -53,6 +50,14 @@ int posYf1 = 193; // posición vertical inicial para el salto
 int altinicial = 193; //posicion vertical general de inicio del personaje
 
 int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
+
+
+//plataforma 
+  // altura de la plataforma
+  int platformHeight = 171;
+  //  límites x de la plataforma
+  int platformStartX = 34;
+  int platformEndX = 244;
 
 //--------------------------------------colores-----------------------------------------
 
@@ -116,9 +121,7 @@ void setup() {
 
 //-------------------------------------------------------------------------------------
 
-////////////////////////pines
-  pinMode(btnPin1, INPUT_PULLUP);
-  pinMode(btnPin2, INPUT_PULLUP);
+
 
 //---------------------configuracion de pantalla--------------------------------
 extern uint8_t back1[];
@@ -132,11 +135,11 @@ void saltar() {
   int avanceHorizontal = 1;  // Define cuántos píxeles se moverá horizontalmente en cada paso del salto
 
   isJumping = true;  // Activa la bandera de salto
-  Serial.println(posYf1);
+  //Serial.println(posYf1);
 
   // Fase de subida del salto
   for (int j = 0; j < alturaSalto / 2; j++) { 
-     Serial.println(posYf1);
+     //Serial.println(posYf1);
 
     FillRect(posXf1, posYf1, frogswidth+1, frogsheight, fillmovecolor);  // Borra el sprite anterior dibujando un rectángulo del color de fondo
     posYf1--;  // Decrementa la posición vertical para mover el sprite hacia arriba
@@ -153,7 +156,7 @@ void saltar() {
 
   // Fase de bajada del salto
   for (int j = 0; j < alturaSalto / 2; j++) {
-     Serial.println(posYf1);
+     //Serial.println(posYf1);
 
     FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior
     posYf1++;  // Incrementa la posición vertical para mover el sprite hacia abajo
@@ -185,28 +188,37 @@ void saltar() {
 
 //-------------------------------------FUNCION DE PLATAFORMA-------------------------------------------
 
-//int checkPlatformCollision(int posX, int posY) {
-    // Verificar si el personaje está dentro del rango x de la plataforma
-  //  if (posX >= 24 && posX <= 244) {
-        // Verificar si el personaje está aproximadamente a la altura de la plataforma
-     //   if (posY >= (171 - 22) && posY <= 171) {
-            // Si está dentro del rango x y y, ajusta posY para que se quede en la plataforma
-          //  return 171 - 22;
-      //  }
-   // }
-    //  otras plataformas aquí
+int checkPlatformCollision(int posX, int posY) {
+  int platformHeight = 171;
+  int platformStartX = 34;
+  int platformEndX = 244;
+  int characterHeight = 22;  // Establece la altura real de tu personaje
 
-    // Si no hay colisión, devolver posY sin cambios
-    //return posY;
-//}
+  Serial.print("PosX: ");
+  Serial.println(posX);
+  Serial.print("PosY antes: ");
+  Serial.println(posY);
 
+  // Ajuste en la condición
+  if (posX >= platformStartX && posX <= platformEndX) {
+    if (posY - characterHeight <= platformHeight && posY >= platformHeight) {
+      Serial.println("Colisión detectada, ajustando posY");
+      return platformHeight;  // Ajusta según lo necesario para que el personaje parezca estar sobre la plataforma
+    }
+  }
+
+  Serial.println("Sin colisión");
+  return posY;
+}
 
 //------------------------------------------FIN FUNCION DE PLATAFORMA---------------------------------
 //***************************************************************************************************************************************
 // Loop Infinito
 //***************************************************************************************************************************************
 void loop() {
-
+  posYf1 = checkPlatformCollision(posXf1, posYf1);
+  Serial.print("PosY después: ");
+  Serial.println(posYf1);
     // Serial.println(posYf1);
 
 //tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
@@ -221,6 +233,7 @@ void loop() {
     // y actualiza su posición y
     //posYf1 = checkPlatformCollision(posXf1, posYf1); //posicion de la frog1 general para chequear si est en alguna plataforma
     //posFrog2 = checkPlatformCollision(posX_character2, posY_character2);
+    posYf1 = checkPlatformCollision(posXf1, posYf1);
 
 //-----------------------------control frog 1------------------------------------
   if (Serial2.available()) { // Si hay datos disponibles en el puerto serial UART2
@@ -229,7 +242,7 @@ void loop() {
 
 
   //moviemieto a la derecha
-  if (t == 'B' ) { // Si se recibe 'B', mover a la derecha
+  if (GamePad.isRightPressed()) { // Si se recibe 'B', mover a la derecha
     movimiento = 1; // Establece bandera a 1 cuando se mueve hacia la derecha
 
     posXf1 += 2; // se puede ir modificando para arreglar la velocidad, tambien se debe ir modificando el vline
