@@ -23,9 +23,6 @@
 #include "font.h"
 #include "lcd_registers.h"
 
-#define CUSTOM_SETTINGS
-#define INCLUDE_GAMEPAD_MODULE
-#include <Dabble.h>
 
 #define LCD_RST PD_0
 #define LCD_CS PD_1
@@ -52,12 +49,6 @@ int altinicial = 193; //posicion vertical general de inicio del personaje
 int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
 
 
-//plataforma 
-  // altura de la plataforma
-  int platformHeight = 171;
-  //  límites x de la plataforma
-  int platformStartX = 34;
-  int platformEndX = 244;
 
 //--------------------------------------colores-----------------------------------------
 
@@ -188,37 +179,11 @@ void saltar() {
 
 //-------------------------------------FUNCION DE PLATAFORMA-------------------------------------------
 
-int checkPlatformCollision(int posX, int posY) {
-  int platformHeight = 171;
-  int platformStartX = 34;
-  int platformEndX = 244;
-  int characterHeight = 22;  // Establece la altura real de tu personaje
-
-  Serial.print("PosX: ");
-  Serial.println(posX);
-  Serial.print("PosY antes: ");
-  Serial.println(posY);
-
-  // Ajuste en la condición
-  if (posX >= platformStartX && posX <= platformEndX) {
-    if (posY - characterHeight <= platformHeight && posY >= platformHeight) {
-      Serial.println("Colisión detectada, ajustando posY");
-      return platformHeight;  // Ajusta según lo necesario para que el personaje parezca estar sobre la plataforma
-    }
-  }
-
-  Serial.println("Sin colisión");
-  return posY;
-}
-
 //------------------------------------------FIN FUNCION DE PLATAFORMA---------------------------------
 //***************************************************************************************************************************************
 // Loop Infinito
 //***************************************************************************************************************************************
 void loop() {
-  posYf1 = checkPlatformCollision(posXf1, posYf1);
-  Serial.print("PosY después: ");
-  Serial.println(posYf1);
     // Serial.println(posYf1);
 
 //tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
@@ -233,7 +198,6 @@ void loop() {
     // y actualiza su posición y
     //posYf1 = checkPlatformCollision(posXf1, posYf1); //posicion de la frog1 general para chequear si est en alguna plataforma
     //posFrog2 = checkPlatformCollision(posX_character2, posY_character2);
-    posYf1 = checkPlatformCollision(posXf1, posYf1);
 
 //-----------------------------control frog 1------------------------------------
   if (Serial2.available()) { // Si hay datos disponibles en el puerto serial UART2
@@ -242,7 +206,7 @@ void loop() {
 
 
   //moviemieto a la derecha
-  if (GamePad.isRightPressed()) { // Si se recibe 'B', mover a la derecha
+  if (t == 'B') { // Si se recibe 'B', mover a la derecha
     movimiento = 1; // Establece bandera a 1 cuando se mueve hacia la derecha
 
     posXf1 += 2; // se puede ir modificando para arreglar la velocidad, tambien se debe ir modificando el vline
@@ -321,64 +285,6 @@ void loop() {
   
   }//----------------------------------final control frog 1------------------------------------------
 
- // uint8_t btnState1 = digitalRead(btnPin1);
- // uint8_t btnState2 = digitalRead(btnPin2);
-
-
-//Movimiento
- /// for(int x = 0; x <320-32; x++){
-  ///  delay(15);
- ///   int anim2 = (x/10)%4;//4 es el numero de columnas , el 10 es la velocidad 
-
-
-//parametros para lcd sprite
-//LCD_Sprite(int x, int y, int width, int height, unsigned char bitmap[],int columns, int index, char flip, char offset);
-  ///  LCD_Sprite(x,177,25,22,runf1,4,anim2,0,1);
-    ///V_line( x -1, 177, 24, 0x421b);
-
-
-  //}
-
-
-//////////////boton 1
- // if (btnState1 == LOW)
-  //{
-  //  posX++;
-  //  if (posX != posX2)
-  //  {
-    //  Serial.println("Derecha");
-    //  Serial.println(posX);
-    //  if (posX>320-25)
-    //  posX = (320-25);
-    //  delay(5);
-    //  uint16_t anim2 = posX/10;
-    //  uint16_t animframe = anim2%4;
-
-   //   LCD_Sprite(posX,177,25,22,runf1,4,animframe,0,0);
-   //   V_line( posX -1, 177, 24, 0x421b);
-   //   posX2 = posX;
-  //  }
- // }
-
-/////////boton2
- // if (btnState2 == LOW)
- // {
- //   posX--;
- //   if (posX != posX2)
- //   {
- //     Serial.println("Izquierda");
- //     Serial.println(posX);
-  //    if (posX<(0))
- //     posX = (0);
- //     delay(5);
-  //    uint16_t anim2 = posX/10;
- //     uint16_t animframe = anim2%4;
-
- //     LCD_Sprite(posX,177,25,22,runf1,4,animframe,1,0);
- //     V_line( posX +25, 177, 24, 0x421b);
- //     posX2 = posX;
- //   }
- // }
 
 }
 //***************************************************************************************************************************************
