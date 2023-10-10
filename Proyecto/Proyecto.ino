@@ -23,7 +23,6 @@
 #include "font.h"
 #include "lcd_registers.h"
 
-
 #define LCD_RST PD_0
 #define LCD_CS PD_1
 #define LCD_RS PD_2
@@ -47,8 +46,15 @@ int posYf1 = 193; // posición vertical inicial para el salto
 int altinicial = 193; //posicion vertical general de inicio del personaje
 
 int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
+int alturaActual = 193;  // mapae la altura del persnaje
 
 
+//plataforma 
+  // altura de la plataforma
+  int platformHeight = 169;
+  //  límites x de la plataforma
+  int platformStartX = 74;
+  int platformEndX = 250;
 
 //--------------------------------------colores-----------------------------------------
 
@@ -65,7 +71,7 @@ extern uint8_t viga2p2high[];// madera 2 plat high
 //antirrebote para el salto
 bool isJumping = false; //chequea si se esta saltando 
 unsigned long lastJumpTime = 0; //banddera para saber cuando salto
-const unsigned long jumpDebounceTime = 500; // Tiempo de anti-rebote en milisegundos
+const unsigned long jumpDebounceTime = 1500; // Tiempo de anti-rebote en milisegundos
 
 //antirrebote para el bateo
 bool isBatting = false; // Variable para revisar si se está bateando
@@ -122,16 +128,14 @@ LCD_Bitmap(0, 0, 320, 240, back1);
 
 //-----------------------------------FUNCION DEL SALTO FROG1---------------------------------------------------
 void saltar() {
-  int alturaSalto = 85;  // Define la altura total del salto
+  alturaActual = posYf1;  // Actualiza la altura actual antes de iniciar el salto
+  int alturaSalto = 84;  // Define la altura total del salto
   int avanceHorizontal = 1;  // Define cuántos píxeles se moverá horizontalmente en cada paso del salto
-
+  bool landed = false;  // Variable para rastrear si el personaje ha aterrizado en la plataforma
   isJumping = true;  // Activa la bandera de salto
-  //Serial.println(posYf1);
 
   // Fase de subida del salto
   for (int j = 0; j < alturaSalto / 2; j++) { 
-     //Serial.println(posYf1);
-
     FillRect(posXf1, posYf1, frogswidth+1, frogsheight, fillmovecolor);  // Borra el sprite anterior dibujando un rectángulo del color de fondo
     posYf1--;  // Decrementa la posición vertical para mover el sprite hacia arriba
     if (movimiento == 1 && posXf1 < 320 - 26) {  // Si el movimiento es a la derecha y no se ha llegado al límite derecho
@@ -147,8 +151,18 @@ void saltar() {
 
   // Fase de bajada del salto
   for (int j = 0; j < alturaSalto / 2; j++) {
-     //Serial.println(posYf1);
+   
+    
+    // Verifica la colisión con la plataforma en la fase descendente del salto
+    if (posYf1 + frogsheight >= platformHeight && posYf1 + frogsheight <= platformHeight + 5) {
+        Serial.println("Colisión detectada!");
+        posYf1 = platformHeight - frogsheight;  // Ajusta la posición Y del personaje para que esté sobre la plataforma
+        alturaActual = platformHeight - frogsheight;  // Actualiza la altura actual
 
+        landed = true;  // Indica que el personaje ha aterrizado en la plataforma
+        break;  // Termina el bucle, ya que el personaje ha aterrizado en la plataforma
+    }
+    
     FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior
     posYf1++;  // Incrementa la posición vertical para mover el sprite hacia abajo
     if (movimiento == 1 && posXf1 < 320-26) {  // Si el movimiento es a la derecha y no se ha llegado al límite derecho
@@ -164,7 +178,9 @@ void saltar() {
 
   // Finalización del salto
   FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior una vez que el salto ha finalizado
-  posYf1 = altinicial;  // Restablece la posición vertical del sprite a su valor inicial
+  if (!landed) {  // Solo restablece la posición vertical si el personaje no ha aterrizado en la plataforma
+      posYf1 = alturaActual;  // Restablece la posición vertical del sprite a su valor inicial
+  }
   isJumping = false;  // Desactiva la bandera de salto
 
   // Dibuja el sprite original después de finalizar el salto, con o sin flip dependiendo de la dirección
@@ -172,6 +188,7 @@ void saltar() {
     LCD_Sprite(posXf1+1, posYf1, frogswidth, frogsheight, runf1, 4, 0, 0, 0);  // Dibuja el sprite en reposo sin flip
   } else if (movimiento == -1) {  // Si el movimiento fue a la izquierda
     LCD_Sprite(posXf1, posYf1, frogswidth, frogsheight, runf1, 4, 0, 1, 0);  // Dibuja el sprite en reposo con flip
+  
   }//finn de flip al caaer
 }//fin de funcion de salto 
 
@@ -179,11 +196,31 @@ void saltar() {
 
 //-------------------------------------FUNCION DE PLATAFORMA-------------------------------------------
 
+bool chequearPlataformaf1() {
+    return (posXf1 + frogswidth >= platformStartX && posXf1 <= platformEndX && alturaActual == platformHeight - frogsheight);
+}
+
+void caerf1() {
+  while (posYf1 < altinicial) {  // Continuar cayendo hasta llegar al suelo
+    FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior
+    posYf1++;  // Incrementa la posición vertical para mover el sprite hacia abajo
+    for (uint16_t i = 2; i < 5; i++) {
+      LCD_Sprite(posXf1, posYf1, frogswidth, frogsheight, jumpfrog2, 5, i, movimiento == -1, 0);  // Dibuja el sprite de caída correspondiente
+      delay(5);  // Introduce un pequeño retardo para visualizar el sprite
+    }
+  }
+  alturaActual = posYf1;  // Actualiza la altura actual una vez que el personaje ha llegado al suelo
+}
+
+
 //------------------------------------------FIN FUNCION DE PLATAFORMA---------------------------------
 //***************************************************************************************************************************************
-// Loop Infinito
+// Loop Infinito//
 //***************************************************************************************************************************************
 void loop() {
+  if (!chequearPlataformaf1() && !isJumping) {
+    caerf1();  // Si el personaje está fuera del rango de la plataforma y no está saltando, llamar a la función caer
+  }
     // Serial.println(posYf1);
 
 //tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
@@ -194,10 +231,7 @@ void loop() {
     LCD_Bitmap(106, 133, 3, 37, viga1p2high);// madera 1 viga2p2high[]
     LCD_Bitmap(213, 133, 3, 37, viga2p2high);// madera 1 
 
-// Llama a la función de verificación de colisión con la plataforma para cada personaje
-    // y actualiza su posición y
-    //posYf1 = checkPlatformCollision(posXf1, posYf1); //posicion de la frog1 general para chequear si est en alguna plataforma
-    //posFrog2 = checkPlatformCollision(posX_character2, posY_character2);
+
 
 //-----------------------------control frog 1------------------------------------
   if (Serial2.available()) { // Si hay datos disponibles en el puerto serial UART2
@@ -206,13 +240,13 @@ void loop() {
 
 
   //moviemieto a la derecha
-  if (t == 'B') { // Si se recibe 'B', mover a la derecha
+  if (t == 'B' ) { // Si se recibe 'B', mover a la derecha
     movimiento = 1; // Establece bandera a 1 cuando se mueve hacia la derecha
 
     posXf1 += 2; // se puede ir modificando para arreglar la velocidad, tambien se debe ir modificando el vline
     if (posXf1 != posX2f1) {
           //Serial2.println("Derecha");
-         Serial2.println(posXf1);
+         //Serial2.println(posXf1);
          if (posXf1 > 320-frogswidth)
             posXf1 = (320-frogswidth);
           delay(5);
@@ -221,14 +255,14 @@ void loop() {
 
         // Borra el sprite anterior
         // Dibuja líneas en las posiciones anteriores para "borrar" el sprite anterior
-          V_line( posX2f1 -1, altinicial, 22, fillmovecolor);
-          V_line( posX2f1, altinicial, 22, fillmovecolor);
-          V_line( posX2f1 +2, altinicial, 22, fillmovecolor);
+          V_line( posX2f1 -1, alturaActual, 22, fillmovecolor);
+          V_line( posX2f1, alturaActual, 22, fillmovecolor);
+          V_line( posX2f1 +2, alturaActual, 22, fillmovecolor);
 
     
     // Dibuja el nuevo sprite
-      LCD_Sprite(posXf1 ,altinicial ,frogswidth ,frogsheight ,runf1 ,4 ,animrun ,0 ,0);
-      V_line( posXf1 -1, altinicial, 22, fillmovecolor);
+      LCD_Sprite(posXf1 ,alturaActual ,frogswidth ,frogsheight ,runf1 ,4 ,animrun ,0 ,0);
+      V_line( posXf1 -1, alturaActual, 22, fillmovecolor);
       posX2f1 = posXf1; // Actualiza posX2f1 con el valor actual de posXf1
     }
   }//final derecha
@@ -242,7 +276,7 @@ void loop() {
 
    
         //Serial.println("Izquierda");
-        Serial.println(posXf1);
+        //Serial.println(posXf1);
         if (posXf1<(0))
         posXf1 = (0);
         delay(5);
@@ -251,14 +285,14 @@ void loop() {
 
         // Borra el sprite anterior
        // Dibuja líneas en las posiciones anteriores para "borrar" el sprite anterior
-        V_line( posX2f1 +24, altinicial, 22, fillmovecolor);
-        V_line( posX2f1 +25, altinicial, 22, fillmovecolor);
-        V_line( posX2f1 +26, altinicial, 22, fillmovecolor);
+        V_line( posX2f1 +24, alturaActual, 22, fillmovecolor);
+        V_line( posX2f1 +25, alturaActual, 22, fillmovecolor);
+        V_line( posX2f1 +26, alturaActual, 22, fillmovecolor);
 
     
     // Dibuja el nuevo sprite
-      LCD_Sprite(posXf1 ,altinicial ,frogswidth ,frogsheight ,runf1 ,4 ,animrun2 ,1 ,0);
-      V_line( posXf1 +25, altinicial, 22, fillmovecolor);
+      LCD_Sprite(posXf1 ,alturaActual ,frogswidth ,frogsheight ,runf1 ,4 ,animrun2 ,1 ,0);
+      V_line( posXf1 +25, alturaActual, 22, fillmovecolor);
       posX2f1 = posXf1; // Actualiza posX2f1 con el valor actual de posXf1
     }
   }//final izquierda 
@@ -274,10 +308,10 @@ void loop() {
   if (t == '3' && millis() - lastBatTime > batDebounceTime) {
     isBatting = true; // Indicador de que se está bateando
     for(uint16_t i = 0; i < 4; i++) {
-        LCD_Sprite(posXf1, altinicial, frogswidth, frogsheight, batfrog2, 4, i, 1, 0); // Ejecuta la animación de bateo
+        LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, batfrog2, 4, i, 1, 0); // Ejecuta la animación de bateo
         delay(100); // Retardo para visualizar cada frame
     }
-    LCD_Sprite(posXf1, altinicial, frogswidth, frogsheight, runf1, 4, 0, 0, 0); // Restablece al estado original
+    LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, runf1, 4, 0, 0, 0); // Restablece al estado original
     isBatting = false; // Indicador de que el bateo ha terminado
     lastBatTime = millis(); // Actualiza el tiempo del último bateo
   }
@@ -285,8 +319,8 @@ void loop() {
   
   }//----------------------------------final control frog 1------------------------------------------
 
+}//final del loop
 
-}
 //***************************************************************************************************************************************
 // Función para inicializar LCD
 //***************************************************************************************************************************************
