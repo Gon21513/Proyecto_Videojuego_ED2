@@ -22,6 +22,10 @@
 #include "bitmaps.h"
 #include "font.h"
 #include "lcd_registers.h"
+#include <SPI.h> //Librería para la comunicacion SPI
+#include <SD.h> //Librería para comunicación con la memoria microSD
+
+File myFile; //Definimos objeto de la librería
 
 #define LCD_RST PD_0
 #define LCD_CS PD_1
@@ -48,13 +52,16 @@ int altinicial = 193; //posicion vertical general de inicio del personaje
 int movimiento =  0; // = quieto, 1 = derecha, -1 = izquierda
 int alturaActual = 193;  // mapae la altura del persnaje
 
+  
 
-//plataforma 
+// Medidas de plataformas
   // altura de la plataforma
   int platformHeight = 169;
-  //  límites x de la plataforma
   int platformStartX = 74;
   int platformEndX = 250;
+  int platform2Height = 129;
+  int platform2StartX = 114;
+  int platform2EndX = 210;
 
 //--------------------------------------colores-----------------------------------------
 
@@ -65,7 +72,7 @@ extern uint8_t viga2p1low[]; //tile madera 2 en primera plataforma
 extern uint8_t plat2high[]; // tile de la segunda plataforma
 extern uint8_t viga1p2high[]; //tile madera 1 en plat high 
 extern uint8_t viga2p2high[];// madera 2 plat high 
-
+extern uint8_t back1[]; //background de platafromas 
 
 
 //antirrebote para el salto
@@ -77,6 +84,12 @@ const unsigned long jumpDebounceTime = 1500; // Tiempo de anti-rebote en miliseg
 bool isBatting = false; // Variable para revisar si se está bateando
 unsigned long lastBatTime = 0; // Tiempo del último bateo
 const unsigned long batDebounceTime = 500; // Tiempo de anti-rebote para el bateo
+
+
+// bandera para revisar si el menu debe estar mostrandose o no
+int menuflag = 0;
+
+char gamemode; //Variable para validar cambio de modos
 
 //**************************************************************
 
@@ -99,17 +112,28 @@ void LCD_Print(String text, int x, int y, int fontSize, int color, int backgroun
 void LCD_Bitmap(unsigned int x, unsigned int y, unsigned int width, unsigned int height, unsigned char bitmap[]);
 void LCD_Sprite(int x, int y, int width, int height, unsigned char bitmap[],int columns, int index, char flip, char offset);
 
+int asciitohex (int a); //Función para pasar ASCII a valor hexadecimal
+void mapeoSD(); //Función para mostrar imagen de la memoria microSD
 
 
 //***************************************************************************************************************************************
 // Inicialización
 //***************************************************************************************************************************************
 void setup() {
+
+
+  pinMode(PA_3, OUTPUT); //Se define PA_3 como salida y se convierte en slave select
+
+  
   SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
   Serial.begin(115200);//comunicacion con la pnatalla lcd
 
   GPIOPadConfigSet(GPIO_PORTB_BASE, 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7, GPIO_STRENGTH_8MA, GPIO_PIN_TYPE_STD_WPU);
   Serial.println("Inicio");
+   Serial.println("Iniciando pantalla...");
+  SPI.setModule(0); //Utilizar el SPI Module 0
+
+  
   LCD_Init();
   LCD_Clear(0x00);
 
@@ -118,12 +142,30 @@ void setup() {
 
 //-------------------------------------------------------------------------------------
 
-
+ if (!SD.begin(PA_3)){ //Verificar que el slave select este en 0, y se responda un 1
+    Serial.println("initialization failed!"); //Si no falló la inicialización
+    return;
+  }
+  Serial.println("initialization done."); //Se inició la comunicación
 
 //---------------------configuracion de pantalla--------------------------------
-extern uint8_t back1[];
-LCD_Bitmap(0, 0, 320, 240, back1);
- 
+  //extern uint8_t back1[];
+  //LCD_Bitmap(0, 0, 320, 240, back1);
+  menuflag = 1;
+  LCD_Print("MENU", 140, 30, 2, 0xFFFF, 0x0000);
+  LCD_Print("PRESS START", 130, 165, 1, 0xFFFF, 0x0000);
+  myFile = SD.open("menuinit.txt");
+  mapeoSD();
+  while (menuflag == 1){
+    //myFile = SD.open("menuinit.txt");
+    //mapeoSD();
+    gamemode = Serial.read(); //Leer la respuesta del usuario
+    if (gamemode == 'r'){
+      menuflag = 2;
+    }
+  }
+  extern uint8_t back1[];
+  LCD_Bitmap(0, 0, 320, 240, back1);
 }
 
 //-----------------------------------FUNCION DEL SALTO FROG1---------------------------------------------------
@@ -152,15 +194,19 @@ void saltar() {
   // Fase de bajada del salto
   for (int j = 0; j < alturaSalto / 2; j++) {
    
-    
-    // Verifica la colisión con la plataforma en la fase descendente del salto
-    if (posYf1 + frogsheight >= platformHeight && posYf1 + frogsheight <= platformHeight + 5) {
+    // Verifica la colisión con las plataformas en la fase descendente del salto
+    if ((posYf1 + frogsheight >= platformHeight && posYf1 + frogsheight <= platformHeight + 5) || 
+        (posYf1 + frogsheight >= platform2Height && posYf1 + frogsheight <= platform2Height + 5)) {
         Serial.println("Colisión detectada!");
-        posYf1 = platformHeight - frogsheight;  // Ajusta la posición Y del personaje para que esté sobre la plataforma
-        alturaActual = platformHeight - frogsheight;  // Actualiza la altura actual
-
-        landed = true;  // Indica que el personaje ha aterrizado en la plataforma
-        break;  // Termina el bucle, ya que el personaje ha aterrizado en la plataforma
+        if (posYf1 + frogsheight >= platformHeight && posYf1 + frogsheight <= platformHeight + 5) {
+            posYf1 = platformHeight - frogsheight;  // Ajusta la posición Y del personaje para que esté sobre la primera plataforma
+            alturaActual = platformHeight - frogsheight;  // Actualiza la altura actual
+        } else {
+            posYf1 = platform2Height - frogsheight;  // Ajusta la posición Y del personaje para que esté sobre la segunda plataforma
+            alturaActual = platform2Height - frogsheight;  // Actualiza la altura actual
+        }
+        landed = true;  // Indica que el personaje ha aterrizado en una plataforma
+        break;  // Termina el bucle, ya que el personaje ha aterrizado en una plataforma
     }
     
     FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior
@@ -178,9 +224,9 @@ void saltar() {
 
   // Finalización del salto
   FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior una vez que el salto ha finalizado
-  if (!landed) {  // Solo restablece la posición vertical si el personaje no ha aterrizado en la plataforma
-      posYf1 = alturaActual;  // Restablece la posición vertical del sprite a su valor inicial
-  }
+ // if (!landed) {  // Solo restablece la posición vertical si el personaje no ha aterrizado en la plataforma
+  //    posYf1 = alturaActual;  // Restablece la posición vertical del sprite a su valor inicial
+ // }
   isJumping = false;  // Desactiva la bandera de salto
 
   // Dibuja el sprite original después de finalizar el salto, con o sin flip dependiendo de la dirección
@@ -197,11 +243,31 @@ void saltar() {
 //-------------------------------------FUNCION DE PLATAFORMA-------------------------------------------
 
 bool chequearPlataformaf1() {
-    return (posXf1 + frogswidth >= platformStartX && posXf1 <= platformEndX && alturaActual == platformHeight - frogsheight);
+    return (
+        // Chequea la primera plataforma
+        (posXf1 + frogswidth >= platformStartX && posXf1 <= platformEndX && alturaActual == platformHeight - frogsheight) ||
+        // Chequea la segunda plataforma
+        (posXf1 + frogswidth >= platform2StartX && posXf1 <= platform2EndX && alturaActual == platform2Height - frogsheight)
+    );
 }
 
 void caerf1() {
   while (posYf1 < altinicial) {  // Continuar cayendo hasta llegar al suelo
+    // Chequear colisión con la primera plataforma
+    if (posXf1 + frogswidth >= platformStartX && posXf1 <= platformEndX &&
+        posYf1 + frogsheight >= platformHeight && posYf1 + frogsheight <= platformHeight + 5) {
+      alturaActual = platformHeight - frogsheight;  // Ajusta la altura actual
+      posYf1 = alturaActual;  // Ajusta la posición Y del personaje
+      break;  // Sale del bucle
+    }
+    // Chequear colisión con la segunda plataforma
+    if (posXf1 + frogswidth >= platform2StartX && posXf1 <= platform2EndX &&
+        posYf1 + frogsheight >= platform2Height && posYf1 + frogsheight <= platform2Height + 5) {
+      alturaActual = platform2Height - frogsheight;  // Ajusta la altura actual
+      posYf1 = alturaActual;  // Ajusta la posición Y del personaje
+      break;  // Sale del bucle
+    }
+
     FillRect(posXf1, posYf1, frogswidth, frogsheight, fillmovecolor);  // Borra el sprite anterior
     posYf1++;  // Incrementa la posición vertical para mover el sprite hacia abajo
     for (uint16_t i = 2; i < 5; i++) {
@@ -209,9 +275,8 @@ void caerf1() {
       delay(5);  // Introduce un pequeño retardo para visualizar el sprite
     }
   }
-  alturaActual = posYf1;  // Actualiza la altura actual una vez que el personaje ha llegado al suelo
+  alturaActual = posYf1;  // Actualiza la altura actual una vez que el personaje ha llegado al suelo (solo si no ha aterrizado en una plataforma)
 }
-
 
 //------------------------------------------FIN FUNCION DE PLATAFORMA---------------------------------
 //***************************************************************************************************************************************
@@ -227,7 +292,7 @@ void loop() {
     LCD_Bitmap(55, 170, 216, 3, platlow);// plataforma 1
     LCD_Bitmap(87, 173, 10, 43, vigap1low);// madera 1
     LCD_Bitmap(225, 173, 10, 43, viga2p1low); //madera 2 plat2high
-    LCD_Bitmap(88, 130, 144, 3, plat2high);// plataforma 1     
+    LCD_Bitmap(88, 130, 144, 3, plat2high);// plataforma 2    
     LCD_Bitmap(106, 133, 3, 37, viga1p2high);// madera 1 viga2p2high[]
     LCD_Bitmap(213, 133, 3, 37, viga2p2high);// madera 1 
 
@@ -670,4 +735,77 @@ void LCD_Sprite(int x, int y, int width, int height, unsigned char bitmap[],int 
     
     }
   digitalWrite(LCD_CS, HIGH);
+}
+
+int asciitohex(int a){
+  switch (a){
+    case 48: //Si se lee un '0' 
+      return 0x00; //Devolver un 0
+    case 49: //Si se lee un '1'
+      return 0x01; //Devolver un 1
+    case 50: //Si se lee un '2'
+      return 0x02; //Devolver un 2
+    case 51: //Si se lee un '3'
+      return 0x03; //Devolver un 3
+    case 52: //Si se lee un '4'
+      return 0x04; //Devolver un 4
+    case 53: //Si se lee un '5'
+      return 0x05; //Devolver un 5
+    case 54: //Si se lee un '6'
+      return 0x06; //Devolver un 6
+    case 55: //Si se lee un '7'
+      return 0x07; //Devolver un 7
+    case 56: //Si se lee un '8' 
+      return 0x08; //Devolver un 8
+    case 57: //Si se lee un '9' 
+      return 0x09; //Devolver un 9
+    case 97: //Si se lee un 'a'
+      return 0x0A; //Devolver un 10
+    case 98: //Si se lee un 'b'
+      return 0x0B; //Devolver un 11
+    case 99: //Si se lee un 'c' 
+      return 0x0C; //Devolver un 12
+    case 100: //Si se lee un 'd'
+      return 0x0D; //Devolver un 13
+    case 101: //Si se lee un 'e'
+      return 0x0E; //Devolver un 14
+    case 102: //Si se lee un 'f'
+      return 0x0F; //Devolver un 15
+  }
+}
+
+//Función para leer de la SD y mostrar en la pantalla
+void mapeoSD(){
+  int hex1 = 0; //Variable para agarrar lo leído de la SD
+  int val1 = 0; //Variable para guardar decena del valor hexadecimal
+  int val2 = 0; //Variable para guardar la unidad hexadecimal
+  int mapear = 0; //Iniciar con la posición del arreglo en 0
+  int vertical = 0; //Iniciar con la coordenada en y en 0
+  unsigned char maps[640]; //Definir un arreglo de 640 espacios
+
+  if (myFile){ //Si se encontró un archivo con el nombre definido previamente ejecutar
+    while (myFile.available()){ //Siempre que haya contenido por leer en la SD ejecutar
+      mapear = 0; //Iniciar la posición de mapear en 0
+      while (mapear < 640){ //Mientras se llegue 
+        hex1 = myFile.read(); //Leer del archivo de texto
+        if (hex1 == 120){ //Si se leyó una "x", significa que vienen dos valores en hexadecimal que si hay que guardar
+          val1 = myFile.read(); //Leer y almacenar en una variable
+          val2 = myFile.read(); //Leer y almacenar en una variable
+          val1 = asciitohex(val1); //Convertir el valor de ASCII a hexadecimal
+          val2 = asciitohex(val2); //Convertir el valor de ASCII a hexadecimal
+          maps[mapear] = val1*16 + val2; //Guardar el valor de mapeo en el arreglo
+          mapear++; //Aumentar la posición del arreglo
+        }
+      }
+
+      LCD_Bitmap(0, vertical, 320, 1, maps); //Mostrar una fila de contenido de la imagen
+      vertical++; //Aumentar la línea vertical
+    }
+
+    myFile.close(); //Cerrar el archivo si ya hay contenido por leer
+  }
+  else {
+    myFile.close(); //Si no se encontró el arhivo cerrar para evitar algún error
+    Serial.println("NO SE ABRIO");
+  }
 }

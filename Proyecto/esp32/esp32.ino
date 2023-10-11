@@ -8,7 +8,7 @@ BluetoothSerial BT; // Objeto Bluetooth
 
 void setup() {
   Serial.begin(9600); // Inicializa la conexión Serial (UART0) para depuración y comunicación UART
-  BT.begin("frog2"); // Inicia el Bluetooth con un nombre dado
+  BT.begin("frog1"); // Inicia el Bluetooth con un nombre dado
   Serial.println("El dispositivo Bluetooth está listo para emparejarse");
 }
 
