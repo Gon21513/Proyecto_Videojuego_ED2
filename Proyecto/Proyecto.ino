@@ -127,6 +127,9 @@ bool enElAiref2 = false;
 int vidasFrog1 = 10;
 int vidasFrog2 = 10;
 
+int vidasAnterioresFrog1 = vidasFrog1;
+int vidasAnterioresFrog2 = vidasFrog2;
+
 //-------------colisiones
 bool animacionColisionActiva = false; // Indica si la animación de colisión está activa
 uint16_t tiempoInicioAnimacion;       // Almacena el momento en que comenzó la animación
@@ -191,8 +194,8 @@ void setup() {
   //extern uint8_t back1[];
   //LCD_Bitmap(0, 0, 320, 240, back1);
   menuflag = 1;
-  LCD_Print("MENU", 140, 30, 2, 0xFFFF, 0x0000);
-  LCD_Print("PRESS START", 130, 165, 1, 0xFFFF, 0x0000);
+  //LCD_Print("Vidas Frog1:", 0, 0, 2, 0xFFFF, 0x0000);
+  //LCD_Print("Vidas Frog2:", 0, 1, 2, 0xFFFF, 0x0000);
   myFile = SD.open("menuinit.txt");
   mapeoSD();
   while (menuflag == 1){
@@ -497,6 +500,21 @@ bool Colision() {
 void loop() {
   while (menuflag == 2){
     uint16_t currentTime = millis();
+
+//marcadores 
+    // Verifica si las vidas de Frog1 han cambiado
+    if (vidasFrog1 != vidasAnterioresFrog1) {
+        LCD_Print("F1: " + String(vidasFrog1), 1, 2, 2, 0xFFFF, 0x0000);
+        vidasAnterioresFrog1 = vidasFrog1; // Actualiza las vidas anteriores
+    }
+
+
+    // Verifica si las vidas de Frog2 han cambiado
+    if (vidasFrog2 != vidasAnterioresFrog2) {
+        LCD_Print("F2: " + String(vidasFrog2), 3, 20, 2, 0xFFFF, 0x0000); // Ajusta la posición y según dónde quieras mostrarlo
+        vidasAnterioresFrog2 = vidasFrog2; // Actualiza las vidas anteriores
+    }
+
 
   if (!chequearPlataformaf1() && !isJumping) {
     caerf1();  // Si el personaje está fuera del rango de la plataforma y no está saltando, llamar a la función caer
