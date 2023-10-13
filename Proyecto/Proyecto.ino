@@ -82,7 +82,10 @@ extern uint8_t viga2p1low[]; //tile madera 2 en primera plataforma
 extern uint8_t plat2high[]; // tile de la segunda plataforma
 extern uint8_t viga1p2high[]; //tile madera 1 en plat high 
 extern uint8_t viga2p2high[];// madera 2 plat high 
-extern uint8_t jumpfrog1[];
+extern uint8_t jumpfrog1[];//animacion de salto frog 1
+extern uint8_t frogcol1[];//anamacion de colision frog1
+extern uint8_t frogcol2[];//anamicaion de colision frog2
+
 
 //-------------FROG1
 //antirrebote para el salto
@@ -117,6 +120,21 @@ bool enElAire = false;
 uint16_t lastFrameUpdatef2 = 0;
 const uint16_t frameDurationf2 = 5;  // Duración de cada frame en milisegundos
 bool enElAiref2 = false;
+
+
+//-----------------------VIDAS DE LA FROGS------------------
+
+int vidasFrog1 = 10;
+int vidasFrog2 = 10;
+
+//-------------colisiones
+bool animacionColisionActiva = false; // Indica si la animación de colisión está activa
+uint16_t tiempoInicioAnimacion;       // Almacena el momento en que comenzó la animación
+uint8_t frameActualAnimacion = 0;     // Almacena el frame actual de la animació
+
+bool animacionColisionActivaFrog1 = false;
+uint16_t tiempoInicioAnimacionFrog1 = 0;
+uint8_t frameActualAnimacionFrog1 = 0;
 
 
 // bandera para revisar si el menu debe estar mostrandose o no
@@ -441,6 +459,37 @@ void caerf2() {
 }
 //-----------------------PLATAFORMA FROG2------------------------------
 
+
+
+//-------------------------------FUNCION DE COLISION----------------------------------
+
+bool Colision() {
+    // Lados del rectángulo de frog1
+    int left1 = posXf1;
+    int right1 = posXf1 + frogswidth;
+    int top1 = posYf1;
+    int bottom1 = posYf1 + frogsheight;
+
+    // Lados del rectángulo de frog2
+    int left2 = posXf2;
+    int right2 = posXf2 + frogswidth;
+    int top2 = posYf2;
+    int bottom2 = posYf2 + frogsheight;
+
+    // Comprueba si hay colisión
+    if (left1 < right2 && right1 > left2 && top1 < bottom2 && bottom1 > top2) {
+        return true;  // Hay colisión
+    }
+    return false;  // No hay colisión
+}
+
+//-------------------animaciones de colision--------------------------------
+
+
+
+
+//------------------------------------------------------------------------------------
+
 //------------------------------------------FIN FUNCION DE PLATAFORMA---------------------------------
 //***************************************************************************************************************************************
 // Loop Infinito//
@@ -456,7 +505,40 @@ void loop() {
   if (!chequearPlataformaf2() && !isJumpingf2) {
     caerf2();  // Si el personaje está fuera del rango de la plataforma y no está saltando, llamar a la función caer
   }
-    //rial.println(posYf1);
+
+    // Manejo de la animación de colisión
+    if (animacionColisionActiva) {
+        if (millis() - tiempoInicioAnimacion > 100) {  // Si ha pasado 100ms
+            frameActualAnimacion++;  // Avanza al siguiente frame
+            tiempoInicioAnimacion = millis();  // Actualiza el tiempo de inicio
+
+            if (frameActualAnimacion < 2) {  // Si todavía hay frames por mostrar
+                LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, frogcol2, 2, frameActualAnimacion, 1, 0);
+            } else {
+                // Si todos los frames se han mostrado, finaliza la animación y devuelve a Frog2 a su estado inicial
+                LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, runf2, 4, 0, 0, 0);
+                animacionColisionActiva = false;  // Finaliza la animación de colisión
+            }
+        }
+    }
+
+// Verificar y actualizar la animación de colisión para Frog1
+if (animacionColisionActivaFrog1) {
+    if (millis() - tiempoInicioAnimacionFrog1 > 100) {  // Si ha pasado 100ms
+        frameActualAnimacionFrog1++;  // Avanza al siguiente frame
+        tiempoInicioAnimacionFrog1 = millis();  // Actualiza el tiempo de inicio
+
+        if (frameActualAnimacionFrog1 < 2) {  // Si todavía hay frames por mostrar
+            LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, frogcol1, 2, frameActualAnimacionFrog1, 1, 0);
+        } else {
+            // Si todos los frames se han mostrado, finaliza la animación y devuelve a Frog1 a su estado inicial
+            LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, runf1, 4, 0, 0, 0);
+            animacionColisionActivaFrog1 = false;  // Finaliza la animación de colisión
+        }
+    }
+}
+
+
 
 //tiles, estas tiles de las plataformas se deben dibujar para que reaparezcan cuan el personaje las borre
     LCD_Bitmap(55, 170, 216, 3, platlow);// plataforma 1
@@ -520,16 +602,34 @@ if (t == 'J' && millis() - lastJumpTime > jumpDebounceTime) {
     lastJumpTime = millis();
 }
 
-// Bateo de Frog1
+// Verifica si se ha presionado el botón de bateo y si ha pasado el tiempo mínimo requerido desde el último bateo
 if (t == '3' && millis() - lastBatTime > batDebounceTime) {
-    isBatting = true;
+    isBatting = true;  // Indica que Frog1 está bateando
+    
+    // Anima la acción de bateo mostrando 4 frames
     for (uint16_t i = 0; i < 4; i++) {
         LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, batfrog1, 4, i, 1, 0);
-        delay(100);
+        delay(100);  // Pequeña pausa para que la animación sea visible
     }
+
+    // Devuelve a Frog1 a su posición inicial después de batear
     LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, runf1, 4, 0, 0, 0);
-    isBatting = false;
-    lastBatTime = millis();
+    
+    // Después de batear, verifica si hay colisión con frog2
+    if (Colision()) {
+        Serial.println(vidasFrog2);
+
+        // Iniciar la animación de colisión para Frog2
+        animacionColisionActiva = true;
+        tiempoInicioAnimacion = millis();
+        frameActualAnimacion = 0;
+        LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, frogcol2, 2, frameActualAnimacion, 1, 0);
+
+        vidasFrog2--;  // Si hay colisión, reduce una vida de frog2
+    }
+
+    isBatting = false;  // Indica que Frog1 ha terminado de batear
+    lastBatTime = millis();  // Actualiza el tiempo desde el último bateo
 }
 
   
@@ -584,17 +684,36 @@ if (m == 'D' && !enElAiref2) {  // Solo permitir movimiento si no está en el ai
     lastJumpTimef2 = millis(); // Actualizar el tiempo del último salto
   } //final salto
 
-  // Bateo de rana
-  if (m == '3' && millis() - lastBatTimef2 > batDebounceTimef2) {
-    isBattingf2 = true; // Indicador de que se está bateando
-    for(uint16_t i = 0; i < 4; i++) {
-        LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, batfrog2, 4, i, 1, 0); // Ejecuta la animación de bateo
-        delay(100); // Retardo para visualizar cada frame
+// Verifica si se ha presionado el botón de bateo y si ha pasado el tiempo mínimo requerido desde el último bateo
+// Función de bateo para Frog2
+
+    if (m == '3' && millis() - lastBatTimef2 > batDebounceTimef2) {
+        isBattingf2 = true;  // Indica que Frog2 está bateando
+        
+        // Anima la acción de bateo mostrando 4 frames
+        for (uint16_t i = 0; i < 4; i++) {
+            LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, batfrog2, 4, i, 1, 0);
+            delay(100);  // Pequeña pausa para que la animación sea visible
+        }
+
+        // Devuelve a Frog2 a su posición inicial después de batear
+        LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, runf2, 4, 0, 0, 0);
+        
+        // Después de batear, verifica si hay colisión con Frog1
+        if (Colision()) {
+            Serial.println(vidasFrog1);
+
+            // Iniciar la animación de colisión para Frog1
+            animacionColisionActivaFrog1 = true;
+            tiempoInicioAnimacionFrog1 = millis();
+            frameActualAnimacionFrog1 = 0;
+            LCD_Sprite(posXf1, alturaActual, frogswidth, frogsheight, frogcol1, 2, frameActualAnimacionFrog1, 1, 0);            vidasFrog1--;  // Si hay colisión, reduce una vida de Frog1
+        }
+
+        isBattingf2 = false;  // Indica que Frog2 ha terminado de batear
+        lastBatTimef2 = millis();  // Actualiza el tiempo desde el último bateo
     }
-    LCD_Sprite(posXf2, alturaActualf2, frogswidth, frogsheight, runf2, 4, 0, 0, 0); // Restablece al estado original
-    isBattingf2 = false; // Indicador de que el bateo ha terminado
-    lastBatTimef2 = millis(); // Actualiza el tiempo del último bateo
-  }
+
 
   }
   }//----------------------------------final control frog 2------------------------------------------
